@@ -7,12 +7,14 @@
 
 Welcome to your new app.
 
-<button @onclick="StartDiscovery">Start Discovery</button>
-<button @onclick="StopDiscovery">Stop Discovery</button>
-<ul>
+<span class="input-group">
+    <button class="btn btn-secondary" @onclick="StartDiscovery">Start Discovery</button>
+    <button class="btn btn-secondary" @onclick="StopDiscovery">Stop Discovery</button>
+</span>
+<ul class="list-group">
     @foreach (var device in bluetoothService.BluetoothDevices)
     {
-        <li>@device</li>
+        <li class="list-group-item">@device</li>
     }
 </ul>
 

@@ -1,4 +1,5 @@
 ﻿using Android.Bluetooth;
+using AndroidX.Core.App;
 using Dagucar.Platforms.Android.CustomCode;
 using Dagucar.Services;
 using System.Collections.ObjectModel;
@@ -9,7 +10,7 @@ internal class BluetoothService : IBluetoothService
 {
     private readonly BluetoothAdapter? bluetoothAdapter = BluetoothAdapter.DefaultAdapter;
     private readonly global::Android.Content.Context context;
-    //CustomCode.BluetoothReceiver? bluetoothReceiver = new();
+    CustomCode.BluetoothReceiver? bluetoothReceiver = new();
 
     public ObservableCollection<string> BluetoothDevices { get; } = new();
 
@@ -21,15 +22,15 @@ internal class BluetoothService : IBluetoothService
         if (bluetoothAdapter == null || !bluetoothAdapter.IsEnabled)
             throw new Exception("Bluetooth not available/enabled");
 
-        //bluetoothReceiver = new BluetoothReceiver();
+        bluetoothReceiver = new BluetoothReceiver();
 
-        //bluetoothReceiver.DiscoveryStarted += BluetoothReceiver_DiscoveryStarted;
-        //bluetoothReceiver.DiscoveryFinished += BluetoothReceiver_DiscoveryFinished;
-        //bluetoothReceiver.DeviceFound += BluetoothReceiver_DeviceFound;
-        //bluetoothReceiver.UuidFetched += BluetoothReceiver_UuidFetched;
+        bluetoothReceiver.DiscoveryStarted += BluetoothReceiver_DiscoveryStarted;
+        bluetoothReceiver.DiscoveryFinished += BluetoothReceiver_DiscoveryFinished;
+        bluetoothReceiver.DeviceFound += BluetoothReceiver_DeviceFound;
+        bluetoothReceiver.UuidFetched += BluetoothReceiver_UuidFetched;
 
-        //foreach (var action in new[] { BluetoothDevice.ActionFound, BluetoothAdapter.ActionDiscoveryStarted, BluetoothAdapter.ActionDiscoveryFinished, BluetoothDevice.ActionBondStateChanged })
-        //    context.RegisterReceiver(bluetoothReceiver, new global::Android.Content.IntentFilter(action));
+        foreach (var action in new[] { BluetoothDevice.ActionFound, BluetoothAdapter.ActionDiscoveryStarted, BluetoothAdapter.ActionDiscoveryFinished, BluetoothDevice.ActionBondStateChanged })
+            context.RegisterReceiver(bluetoothReceiver, new global::Android.Content.IntentFilter(action));
     }
 
     public void Dispose()
@@ -52,7 +53,18 @@ internal class BluetoothService : IBluetoothService
     public Task StartDiscovery()
     {
         BluetoothDevices.Clear();
-        bluetoothAdapter?.StartDiscovery();
+        //bluetoothAdapter?.StartDiscovery();
+        ActivityCompat.RequestPermissions(global::Microsoft.Maui.ApplicationModel.Platform.CurrentActivity!, [
+            global::Android.Manifest.Permission.Bluetooth,
+            global::Android.Manifest.Permission.BluetoothAdmin,
+            global::Android.Manifest.Permission.BluetoothAdvertise,
+            global::Android.Manifest.Permission.BluetoothConnect,
+            global::Android.Manifest.Permission.BluetoothPrivileged,
+            global::Android.Manifest.Permission.BluetoothScan,
+            global::Android.Manifest.Permission.AccessCoarseLocation,
+            global::Android.Manifest.Permission.AccessFineLocation,
+            //"android.hardware.sensor.accelerometer"
+        ], 1);
         return Task.CompletedTask;
     }
 
