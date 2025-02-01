@@ -4,7 +4,7 @@ namespace Dagucar
 {
     public static class MauiProgram
     {
-        public static MauiApp CreateMauiApp()
+        public static MauiAppBuilder CreateMauiApp()
         {
             var builder = MauiApp.CreateBuilder();
             builder
@@ -21,7 +21,7 @@ namespace Dagucar
     		builder.Logging.AddDebug();
 #endif
 
-            return builder.Build();
+            return builder;
         }
     }
 }

@@ -1,5 +1,29 @@
 ﻿@page "/"
+@using Dagucar.Services
+
+@inject IBluetoothService bluetoothService;
 
 <h1>Hello, world!</h1>
 
 Welcome to your new app.
+
+<button @onclick="StartDiscovery">Start Discovery</button>
+<button @onclick="StopDiscovery">Stop Discovery</button>
+<ul>
+    @foreach (var device in bluetoothService.BluetoothDevices)
+    {
+        <li>@device</li>
+    }
+</ul>
+
+@code
+{
+    private async Task StartDiscovery()
+    {
+        await bluetoothService.StartDiscovery();
+    }
+    private void StopDiscovery()
+    {
+
+    }
+}
