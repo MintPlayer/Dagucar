@@ -9,7 +9,7 @@ internal class BluetoothService : IBluetoothService
 {
     private readonly BluetoothAdapter? bluetoothAdapter = BluetoothAdapter.DefaultAdapter;
     private readonly global::Android.Content.Context context;
-    CustomCode.BluetoothReceiver? bluetoothReceiver = new();
+    //CustomCode.BluetoothReceiver? bluetoothReceiver = new();
 
     public ObservableCollection<string> BluetoothDevices { get; } = new();
 
@@ -21,7 +21,7 @@ internal class BluetoothService : IBluetoothService
         if (bluetoothAdapter == null || !bluetoothAdapter.IsEnabled)
             throw new Exception("Bluetooth not available/enabled");
 
-        bluetoothReceiver = new BluetoothReceiver();
+        //bluetoothReceiver = new BluetoothReceiver();
 
         //bluetoothReceiver.DiscoveryStarted += BluetoothReceiver_DiscoveryStarted;
         //bluetoothReceiver.DiscoveryFinished += BluetoothReceiver_DiscoveryFinished;
@@ -34,19 +34,19 @@ internal class BluetoothService : IBluetoothService
 
     public void Dispose()
     {
-        if (bluetoothReceiver != null)
-        {
-            foreach (var action in new[] { BluetoothDevice.ActionFound, BluetoothAdapter.ActionDiscoveryStarted, BluetoothAdapter.ActionDiscoveryFinished, BluetoothDevice.ActionBondStateChanged })
-                context.UnregisterReceiver(bluetoothReceiver);
+        //if (bluetoothReceiver != null)
+        //{
+        //    foreach (var action in new[] { BluetoothDevice.ActionFound, BluetoothAdapter.ActionDiscoveryStarted, BluetoothAdapter.ActionDiscoveryFinished, BluetoothDevice.ActionBondStateChanged })
+        //        context.UnregisterReceiver(bluetoothReceiver);
 
-            bluetoothReceiver.DiscoveryStarted -= BluetoothReceiver_DiscoveryStarted;
-            bluetoothReceiver.DiscoveryFinished -= BluetoothReceiver_DiscoveryFinished;
-            bluetoothReceiver.DeviceFound -= BluetoothReceiver_DeviceFound;
-            bluetoothReceiver.UuidFetched -= BluetoothReceiver_UuidFetched;
+        //    bluetoothReceiver.DiscoveryStarted -= BluetoothReceiver_DiscoveryStarted;
+        //    bluetoothReceiver.DiscoveryFinished -= BluetoothReceiver_DiscoveryFinished;
+        //    bluetoothReceiver.DeviceFound -= BluetoothReceiver_DeviceFound;
+        //    bluetoothReceiver.UuidFetched -= BluetoothReceiver_UuidFetched;
 
-            bluetoothReceiver.Dispose();
-            bluetoothReceiver = null;
-        }
+        //    bluetoothReceiver.Dispose();
+        //    bluetoothReceiver = null;
+        //}
     }
 
     public Task StartDiscovery()
