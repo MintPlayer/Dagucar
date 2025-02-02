@@ -12,8 +12,6 @@ internal class BluetoothService : IBluetoothService
     private readonly global::Android.Content.Context context;
     CustomCode.BluetoothReceiver? bluetoothReceiver = new();
 
-    public ObservableCollection<string> BluetoothDevices { get; } = new();
-
     public bool IsDiscovering { get; private set; }
 
     public BluetoothService()
@@ -52,10 +50,17 @@ internal class BluetoothService : IBluetoothService
         //}
     }
 
-    public Task StartDiscovery()
+    private Func<string, Task> deviceFound;
+    private Func<Task> discoveryFinished;
+    public Task StartDiscovery(Func<string, Task> deviceFound, Func<Task> discoveryFinished)
     {
-        BluetoothDevices.Clear();
+        if (IsDiscovering) throw new InvalidOperationException();
+
         IsDiscovering = true;
+        this.deviceFound = deviceFound;
+        this.discoveryFinished = discoveryFinished;
+
+        //BluetoothDevices.Clear();
         ActivityCompat.RequestPermissions(global::Microsoft.Maui.ApplicationModel.Platform.CurrentActivity!, [
             global::Android.Manifest.Permission.Bluetooth,
             global::Android.Manifest.Permission.BluetoothAdmin,
@@ -74,15 +79,17 @@ internal class BluetoothService : IBluetoothService
     {
     }
 
-    private void BluetoothReceiver_DeviceFound(object? sender, Platforms.Android.CustomCode.EventArgs.DeviceFoundEventArgs e)
+    private async void BluetoothReceiver_DeviceFound(object? sender, Platforms.Android.CustomCode.EventArgs.DeviceFoundEventArgs e)
     {
         if (e.Device?.Name is string name)
-            BluetoothDevices.Add(name);
+            await deviceFound(name);
+            //BluetoothDevices.Add(name);
     }
 
     private void BluetoothReceiver_DiscoveryFinished(object? sender, EventArgs e)
     {
         IsDiscovering = false;
+        discoveryFinished();
     }
 
     private void BluetoothReceiver_DiscoveryStarted(object? sender, EventArgs e)

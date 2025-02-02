@@ -1,5 +1,6 @@
 ﻿@page "/"
 @using Dagucar.Services
+@using System.Collections.ObjectModel
 
 @inject IBluetoothService bluetoothService;
 
@@ -9,7 +10,7 @@ Welcome to your new app.
 
 <span class="input-group">
     @{
-        if (bluetoothService.IsDiscovering)
+        if (isDiscovering)
         {
             <button class="btn btn-secondary" @onclick="StopDiscovery">Stop Discovery</button>
         }
@@ -20,7 +21,7 @@ Welcome to your new app.
     }
 </span>
 <ul class="list-group">
-    @foreach (var device in bluetoothService.BluetoothDevices)
+    @foreach (var device in devices)
     {
         <li class="list-group-item">@device</li>
     }
@@ -28,12 +29,35 @@ Welcome to your new app.
 
 @code
 {
+    private bool isDiscovering = false;
+    private ObservableCollection<string> devices = new();
+
     private async Task StartDiscovery()
     {
-        await bluetoothService.StartDiscovery();
+        isDiscovering = true;
+        await bluetoothService.StartDiscovery(OnDeviceDiscovered, OnDiscoveryFinished);
     }
+
+    private async Task OnDeviceDiscovered(string deviceName)
+    {
+        await InvokeAsync(() =>
+        {
+            devices.Add(deviceName);
+            StateHasChanged();
+        });
+    }
+
+    private async Task OnDiscoveryFinished()
+    {
+        await InvokeAsync(() =>
+        {
+            isDiscovering = false;
+            StateHasChanged();
+        });
+    }
+
     private void StopDiscovery()
     {
-
+        isDiscovering = false;
     }
 }
