@@ -14,6 +14,8 @@ internal class BluetoothService : IBluetoothService
 
     public ObservableCollection<string> BluetoothDevices { get; } = new();
 
+    public bool IsDiscovering { get; private set; }
+
     public BluetoothService()
     {
         context = global::Microsoft.Maui.ApplicationModel.Platform.CurrentActivity
@@ -53,7 +55,7 @@ internal class BluetoothService : IBluetoothService
     public Task StartDiscovery()
     {
         BluetoothDevices.Clear();
-        //bluetoothAdapter?.StartDiscovery();
+        IsDiscovering = true;
         ActivityCompat.RequestPermissions(global::Microsoft.Maui.ApplicationModel.Platform.CurrentActivity!, [
             global::Android.Manifest.Permission.Bluetooth,
             global::Android.Manifest.Permission.BluetoothAdmin,
@@ -80,6 +82,7 @@ internal class BluetoothService : IBluetoothService
 
     private void BluetoothReceiver_DiscoveryFinished(object? sender, EventArgs e)
     {
+        IsDiscovering = false;
     }
 
     private void BluetoothReceiver_DiscoveryStarted(object? sender, EventArgs e)
