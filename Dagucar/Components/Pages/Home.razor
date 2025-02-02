@@ -43,7 +43,7 @@ Welcome to your new app.
         await InvokeAsync(() =>
         {
             devices.Add(deviceName);
-            StateHasChanged();
+            StateHasChanged(); // Have to do this before the UI updates
         });
     }
 
@@ -52,7 +52,7 @@ Welcome to your new app.
         await InvokeAsync(() =>
         {
             isDiscovering = false;
-            StateHasChanged();
+            StateHasChanged(); // Have to do this before the UI updates
         });
     }
 
