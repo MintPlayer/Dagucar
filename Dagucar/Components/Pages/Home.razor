@@ -32,28 +32,22 @@ Welcome to your new app.
     private bool isDiscovering = false;
     private ObservableCollection<string> devices = new();
 
-    private async Task StartDiscovery()
+    private void StartDiscovery()
     {
         isDiscovering = true;
-        await bluetoothService.StartDiscovery(OnDeviceDiscovered, OnDiscoveryFinished);
+        bluetoothService.StartDiscovery(OnDeviceDiscovered, OnDiscoveryFinished);
     }
 
-    private async Task OnDeviceDiscovered(string deviceName)
+    private void OnDeviceDiscovered(string deviceName)
     {
-        await InvokeAsync(() =>
-        {
-            devices.Add(deviceName);
-            StateHasChanged(); // Have to do this before the UI updates
-        });
+        devices.Add(deviceName);
+        // StateHasChanged(); // Have to do this before the UI updates
     }
 
-    private async Task OnDiscoveryFinished()
+    private void OnDiscoveryFinished()
     {
-        await InvokeAsync(() =>
-        {
-            isDiscovering = false;
-            StateHasChanged(); // Have to do this before the UI updates
-        });
+        isDiscovering = false;
+        // StateHasChanged(); // Have to do this before the UI updates
     }
 
     private void StopDiscovery()

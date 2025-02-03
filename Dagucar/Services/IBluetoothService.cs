@@ -4,6 +4,6 @@ namespace Dagucar.Services;
 
 public interface IBluetoothService : IDisposable
 {
-    Task StartDiscovery(Func<string, Task> deviceFound, Func<Task> discoveryFinished);
+    void StartDiscovery(Action<string> deviceFound, Action discoveryFinished);
     bool IsDiscovering { get; }
 }

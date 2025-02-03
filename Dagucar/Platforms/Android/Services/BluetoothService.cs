@@ -50,9 +50,9 @@ internal class BluetoothService : IBluetoothService
         //}
     }
 
-    private Func<string, Task> deviceFound;
-    private Func<Task> discoveryFinished;
-    public Task StartDiscovery(Func<string, Task> deviceFound, Func<Task> discoveryFinished)
+    private Action<string> deviceFound;
+    private Action discoveryFinished;
+    public void StartDiscovery(Action<string> deviceFound, Action discoveryFinished)
     {
         if (IsDiscovering) throw new InvalidOperationException();
 
@@ -72,17 +72,16 @@ internal class BluetoothService : IBluetoothService
             global::Android.Manifest.Permission.AccessFineLocation,
             //"android.hardware.sensor.accelerometer"
         ], 1);
-        return Task.CompletedTask;
     }
 
     private void BluetoothReceiver_UuidFetched(object? sender, Platforms.Android.CustomCode.EventArgs.UuidFetchedEventArgs e)
     {
     }
 
-    private async void BluetoothReceiver_DeviceFound(object? sender, Platforms.Android.CustomCode.EventArgs.DeviceFoundEventArgs e)
+    private void BluetoothReceiver_DeviceFound(object? sender, Platforms.Android.CustomCode.EventArgs.DeviceFoundEventArgs e)
     {
         if (e.Device?.Name is string name)
-            await deviceFound(name);
+            deviceFound(name);
             //BluetoothDevices.Add(name);
     }
 
