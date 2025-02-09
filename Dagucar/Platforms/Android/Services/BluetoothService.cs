@@ -104,8 +104,7 @@ internal class BluetoothService : IBluetoothService
     {
         var newDevice = new BluetoothDevice
         {
-            DeviceName = e.Device.Name,
-            MacAddress = e.Device.Address,
+            InternalDevice = e.Device,
         };
         foundDevices.Add(newDevice, e.Device);
         if (e.Device?.Name is string name)
@@ -144,8 +143,7 @@ internal class BluetoothService : IBluetoothService
         {
             bondedDevices.Add(new()
             {
-                DeviceName = device.Name,
-                MacAddress = device.Address,
+                InternalDevice = device,
             }, device);
         }
 
