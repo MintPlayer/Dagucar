@@ -52,7 +52,10 @@ internal class BluetoothService : IBluetoothService
 
     private Func<string, Task> deviceFound;
     private Func<Task> discoveryFinished;
-    public Task StartDiscovery(Func<string, Task> deviceFound, Func<Task> discoveryFinished)
+
+    public bool IsRequestingPermissions { get; set; }
+
+    public async Task StartDiscovery(Func<string, Task> deviceFound, Func<Task> discoveryFinished)
     {
         if (IsDiscovering) throw new InvalidOperationException();
 
@@ -61,18 +64,29 @@ internal class BluetoothService : IBluetoothService
         this.discoveryFinished = discoveryFinished;
 
         //BluetoothDevices.Clear();
-        ActivityCompat.RequestPermissions(global::Microsoft.Maui.ApplicationModel.Platform.CurrentActivity!, [
-            global::Android.Manifest.Permission.Bluetooth,
-            global::Android.Manifest.Permission.BluetoothAdmin,
-            global::Android.Manifest.Permission.BluetoothAdvertise,
-            global::Android.Manifest.Permission.BluetoothConnect,
-            global::Android.Manifest.Permission.BluetoothPrivileged,
-            global::Android.Manifest.Permission.BluetoothScan,
-            global::Android.Manifest.Permission.AccessCoarseLocation,
-            global::Android.Manifest.Permission.AccessFineLocation,
-            //"android.hardware.sensor.accelerometer"
-        ], 1);
-        return Task.CompletedTask;
+
+        await Task.Run(async () =>
+        {
+            IsRequestingPermissions = true;
+            ActivityCompat.RequestPermissions(global::Microsoft.Maui.ApplicationModel.Platform.CurrentActivity!, [
+                global::Android.Manifest.Permission.Bluetooth,
+                global::Android.Manifest.Permission.BluetoothAdmin,
+                global::Android.Manifest.Permission.BluetoothAdvertise,
+                global::Android.Manifest.Permission.BluetoothConnect,
+                global::Android.Manifest.Permission.BluetoothPrivileged,
+                global::Android.Manifest.Permission.BluetoothScan,
+                global::Android.Manifest.Permission.AccessCoarseLocation,
+                global::Android.Manifest.Permission.AccessFineLocation,
+                //"android.hardware.sensor.accelerometer"
+            ], 1);
+
+            while (IsRequestingPermissions)
+            {
+                await Task.Delay(100);
+            }
+        });
+
+        BluetoothAdapter.DefaultAdapter!.StartDiscovery();
     }
 
     private void BluetoothReceiver_UuidFetched(object? sender, Platforms.Android.CustomCode.EventArgs.UuidFetchedEventArgs e)
@@ -83,7 +97,7 @@ internal class BluetoothService : IBluetoothService
     {
         if (e.Device?.Name is string name)
             await deviceFound(name);
-            //BluetoothDevices.Add(name);
+        //BluetoothDevices.Add(name);
     }
 
     private void BluetoothReceiver_DiscoveryFinished(object? sender, EventArgs e)

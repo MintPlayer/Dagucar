@@ -6,6 +6,7 @@ using Android.OS;
 using AndroidX.Core.App;
 using Dagucar.Platforms.Android.CustomCode;
 using Dagucar.Platforms.Android.CustomCode.EventArgs;
+using Dagucar.Services;
 
 namespace Dagucar
 {
@@ -17,7 +18,8 @@ namespace Dagucar
             Microsoft.Maui.ApplicationModel.Platform.OnRequestPermissionsResult(requestCode, permissions, grantResults);
             base.OnRequestPermissionsResult(requestCode, permissions, grantResults);
 
-            BluetoothAdapter.DefaultAdapter!.StartDiscovery();
+            var btService = IPlatformApplication.Current.Services.GetRequiredService<IBluetoothService>();
+            btService.IsRequestingPermissions = false;
         }
     }
 }
