@@ -1,6 +1,7 @@
 ﻿@page "/"
 @using Dagucar.Services
 @using System.Collections.ObjectModel
+@using Dagucar.Services.EventArgs
 
 @inject IBluetoothService bluetoothService;
 
@@ -20,34 +21,84 @@ Welcome to your new app.
         }
     }
 </span>
+<h2 class="my-2">Bonded devices</h2>
 <ul class="list-group">
-    @foreach (var device in devices)
+    @foreach (var device in bondedDevices)
     {
-        <li class="list-group-item">@device</li>
+        <li class="list-group-item" @onclick="() => ConnectToDevice(device)">@device.DeviceName</li>
+    }
+</ul>
+<h2 class="my-2">Devices nearby</h2>
+<ul class="list-group">
+    @foreach (var device in discoveredDevices)
+    {
+        <li class="list-group-item" @onclick="() => CreateDeviceBond(device)">@device.DeviceName</li>
     }
 </ul>
 
 @code
 {
     private bool isDiscovering = false;
-    private ObservableCollection<string> devices = new();
+    private ObservableCollection<BluetoothDevice> bondedDevices = new();
+    private ObservableCollection<BluetoothDevice> discoveredDevices = new();
+
+    public Home()
+    {
+    }
+
+    bool eventsSetup;
+    protected override async void OnInitialized()
+    {
+        if (!eventsSetup)
+        {
+            bluetoothService.GotPermissions += OnGotPermissions;
+            bluetoothService.DiscoveryStarted += OnDiscoveryStarted;
+            bluetoothService.DeviceFound += OnDeviceFound;
+            bluetoothService.DiscoveryFinished += OnDiscoveryFinished;
+            bluetoothService.BondStateChanged += OnBondStateChanged;
+            eventsSetup = true;
+        }
+
+        var bondedDevices = await bluetoothService.GetBondedDevices();
+        foreach (var device in bondedDevices)
+            this.bondedDevices.Add(device);
+    }
+
+    ~Home()
+    {
+        bluetoothService.GotPermissions -= OnGotPermissions;
+        bluetoothService.DiscoveryStarted -= OnDiscoveryStarted;
+        bluetoothService.DeviceFound -= OnDeviceFound;
+        bluetoothService.DiscoveryFinished -= OnDiscoveryFinished;
+    }
 
     private async Task StartDiscovery()
     {
         isDiscovering = true;
-        await bluetoothService.StartDiscovery(OnDeviceDiscovered, OnDiscoveryFinished);
+        await bluetoothService.RequestBluetoothPermissions();
     }
 
-    private async Task OnDeviceDiscovered(string deviceName)
+    public async void OnGotPermissions(object? sender, EventArgs e)
+    {
+        await bluetoothService.StartDiscovery();
+    }
+
+    public void OnDiscoveryStarted(object? sender, EventArgs e)
+    {
+        discoveredDevices.Clear();
+        // StateHasChanged();
+    }
+
+    private async void OnDeviceFound(object? sender, DeviceDiscoveredEventArgs e)
     {
         await InvokeAsync(() =>
         {
-            devices.Add(deviceName);
+            discoveredDevices.Add(e.Device);
             StateHasChanged(); // Have to do this before the UI updates
         });
     }
 
-    private async Task OnDiscoveryFinished()
+    private async void OnDiscoveryFinished(object? sender, EventArgs e)
     {
         await InvokeAsync(() =>
         {
@@ -56,8 +107,36 @@ Welcome to your new app.
         });
     }
 
-    private void StopDiscovery()
+    private async void StopDiscovery()
     {
-        isDiscovering = false;
+        await bluetoothService.StopDiscovery();
+    }
+
+    private async void CreateDeviceBond(BluetoothDevice? device)
+    {
+        if (device != null)
+            await bluetoothService.CreateDeviceBond(device);
+    }
+    
+    private async void OnBondStateChanged(object? sender, BondStateChangedEventArgs e)
+    {
+        await InvokeAsync(() =>
+        {
+            switch (e.NewState)
+            {
+                case BondState.Bonded:
+                    bondedDevices.Add(e.Device);
+                    break;
+                case BondState.None:
+                    bondedDevices.Remove(e.Device);
+                    break;
+            }
+        });
+    }
+
+    private async void ConnectToDevice(BluetoothDevice? device)
+    {
+        if (device != null)
+            await bluetoothService.ConnectToDevice(device);
     }
 }

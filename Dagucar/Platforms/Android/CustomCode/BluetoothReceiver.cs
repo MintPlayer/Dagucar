@@ -24,8 +24,10 @@ internal class BluetoothReceiver : BroadcastReceiver
             case BluetoothDevice.ActionBondStateChanged:
                 if (intent.GetParcelableExtra(BluetoothDevice.ExtraDevice) is BluetoothDevice device2)
                 {
-                    var oldState = (Bond)(int)intent.GetParcelableExtra(BluetoothDevice.ExtraPreviousBondState);
-                    var newState = (Bond)(int)intent.GetParcelableExtra(BluetoothDevice.ExtraBondState);
+                    //var oldState = (Bond)(int)intent.GetParcelableExtra(BluetoothDevice.ExtraPreviousBondState, );
+                    //var newState = (Bond)(int)intent.GetParcelableExtra(BluetoothDevice.ExtraBondState);
+                    var oldState = (Bond)(int)intent.GetParcelableExtra(BluetoothDevice.ExtraPreviousBondState, Java.Lang.Class.FromType(typeof(Java.Lang.Integer)));
+                    var newState = (Bond)(int)intent.GetParcelableExtra(BluetoothDevice.ExtraBondState, Java.Lang.Class.FromType(typeof(Java.Lang.Integer)));
                     OnBondStateChanged(new EventArgs.BondStateChangedEventArgs { Device = device2, OldState = oldState, NewState = newState });
                 }
                 break;
