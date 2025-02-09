@@ -184,6 +184,17 @@ internal class BluetoothService : IBluetoothService
         var device = bondedDevices.Single(x => x.Value.Address == bluetoothDevice.MacAddress).Value;
         var uuid = UUID.FromString("00001101-0000-1000-8000-00805F9B34FB");
         var socket = device.CreateRfcommSocketToServiceRecord(uuid);
-        socket.Connect();
+        await socket!.ConnectAsync();
+
+        await Task.Delay(1000);
+        await socket.OutputStream!.WriteAsync([0x1f], 0, 1);
+
+        //await Task.Delay(1000);
+        //await socket.OutputStream!.WriteAsync([0x14], 0, 1);
+
+        //await Task.Delay(1000);
+        //await socket.OutputStream!.WriteAsync([0x12], 0, 1);
+
+        await Task.Delay(10000);
     }
 }
