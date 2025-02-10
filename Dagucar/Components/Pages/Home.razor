@@ -2,8 +2,10 @@
 @using Dagucar.Services
 @using System.Collections.ObjectModel
 @using Dagucar.Services.EventArgs
+@using BluetoothAdapter = MintPlayer.Maui.Bluetooth.BluetoothAdapter;
+@using BluetoothDevice = MintPlayer.Maui.Bluetooth.BluetoothDevice;
 
-@inject IBluetoothService bluetoothService;
+@* @inject IBluetoothService bluetoothService; *@
 
 <h1>Hello, world!</h1>
 
@@ -39,6 +41,7 @@ Welcome to your new app.
 @code
 {
     private bool isDiscovering = false;
+    private BluetoothAdapter? bluetoothAdapter;
     private ObservableCollection<BluetoothDevice> bondedDevices = new();
     private ObservableCollection<BluetoothDevice> discoveredDevices = new();
 
@@ -51,36 +54,38 @@ Welcome to your new app.
     {
         if (!eventsSetup)
         {
-            bluetoothService.GotPermissions += OnGotPermissions;
-            bluetoothService.DiscoveryStarted += OnDiscoveryStarted;
-            bluetoothService.DeviceFound += OnDeviceFound;
-            bluetoothService.DiscoveryFinished += OnDiscoveryFinished;
-            bluetoothService.BondStateChanged += OnBondStateChanged;
+            bluetoothAdapter = await BluetoothAdapter.GetDefaultAdapter();
+
+            // bluetoothService.GotPermissions += OnGotPermissions;
+            // bluetoothService.DiscoveryStarted += OnDiscoveryStarted;
+            // bluetoothService.DeviceFound += OnDeviceFound;
+            // bluetoothService.DiscoveryFinished += OnDiscoveryFinished;
+            // bluetoothService.BondStateChanged += OnBondStateChanged;
             eventsSetup = true;
         }
 
-        var bondedDevices = await bluetoothService.GetBondedDevices();
-        foreach (var device in bondedDevices)
-            this.bondedDevices.Add(device);
+        // var bondedDevices = await bluetoothService.GetBondedDevices();
+        // foreach (var device in bondedDevices)
+        //     this.bondedDevices.Add(device);
     }
 
-    ~Home()
-    {
-        bluetoothService.GotPermissions -= OnGotPermissions;
-        bluetoothService.DiscoveryStarted -= OnDiscoveryStarted;
-        bluetoothService.DeviceFound -= OnDeviceFound;
-        bluetoothService.DiscoveryFinished -= OnDiscoveryFinished;
-    }
+    // ~Home()
+    // {
+    //     bluetoothService.GotPermissions -= OnGotPermissions;
+    //     bluetoothService.DiscoveryStarted -= OnDiscoveryStarted;
+    //     bluetoothService.DeviceFound -= OnDeviceFound;
+    //     bluetoothService.DiscoveryFinished -= OnDiscoveryFinished;
+    // }
 
     private async Task StartDiscovery()
     {
         isDiscovering = true;
-        await bluetoothService.RequestBluetoothPermissions();
+        await BluetoothAdapter.RequestPermissions();
     }
 
     public async void OnGotPermissions(object? sender, EventArgs e)
     {
-        await bluetoothService.StartDiscovery();
+        await bluetoothAdapter.StartDiscovery();
     }
 
     public void OnDiscoveryStarted(object? sender, EventArgs e)
@@ -109,13 +114,14 @@ Welcome to your new app.
 
     private async void StopDiscovery()
     {
-        await bluetoothService.StopDiscovery();
+        if (bluetoothAdapter != null)
+            await bluetoothAdapter.StopDiscovery();
     }
 
     private async void CreateDeviceBond(BluetoothDevice? device)
     {
         if (device != null)
-            await bluetoothService.CreateDeviceBond(device);
+            await device.CreateBond();
     }
     
     private async void OnBondStateChanged(object? sender, BondStateChangedEventArgs e)
@@ -137,6 +143,6 @@ Welcome to your new app.
     private async void ConnectToDevice(BluetoothDevice? device)
     {
         if (device != null)
-            await bluetoothService.ConnectToDevice(device);
+            await device.Connect();
     }
 }

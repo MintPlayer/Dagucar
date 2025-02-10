@@ -20,6 +20,7 @@ namespace Dagucar
 
             var btService = IPlatformApplication.Current.Services.GetRequiredService<IBluetoothService>();
             btService.OnGotPermissions();
+
             //btService.IsRequestingPermissions = false;
         }
     }
