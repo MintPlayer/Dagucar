@@ -10,11 +10,12 @@ internal class BluetoothService : IBluetoothService
 {
     private readonly BluetoothAdapter? bluetoothAdapter = BluetoothAdapter.DefaultAdapter;
     private readonly global::Android.Content.Context context;
+    private readonly IFlagService flagService;
     CustomCode.BluetoothReceiver? bluetoothReceiver = new();
 
-    public bool IsDiscovering { get; private set; }
+    //public bool IsDiscovering { get; private set; }
 
-    public BluetoothService()
+    public BluetoothService(IFlagService flagService)
     {
         context = global::Microsoft.Maui.ApplicationModel.Platform.CurrentActivity
             ?? global::Microsoft.Maui.MauiApplication.Context;
@@ -31,6 +32,7 @@ internal class BluetoothService : IBluetoothService
 
         foreach (var action in new[] { BluetoothDevice.ActionFound, BluetoothAdapter.ActionDiscoveryStarted, BluetoothAdapter.ActionDiscoveryFinished, BluetoothDevice.ActionBondStateChanged })
             context.RegisterReceiver(bluetoothReceiver, new global::Android.Content.IntentFilter(action));
+        this.flagService = flagService;
     }
 
     public void Dispose()
@@ -50,29 +52,41 @@ internal class BluetoothService : IBluetoothService
         //}
     }
 
-    private Func<string, Task> deviceFound;
-    private Func<Task> discoveryFinished;
-    public Task StartDiscovery(Func<string, Task> deviceFound, Func<Task> discoveryFinished)
+    //private Func<string, Task> deviceFound;
+    //private Func<Task> discoveryFinished;
+    public async Task StartDiscovery(Func<string, Task> deviceFound, Func<Task> discoveryFinished)
     {
-        if (IsDiscovering) throw new InvalidOperationException();
+        //if (IsDiscovering) throw new InvalidOperationException();
 
-        IsDiscovering = true;
-        this.deviceFound = deviceFound;
-        this.discoveryFinished = discoveryFinished;
+        //IsDiscovering = true;
+        //this.deviceFound = deviceFound;
+        //this.discoveryFinished = discoveryFinished;
 
-        //BluetoothDevices.Clear();
-        ActivityCompat.RequestPermissions(global::Microsoft.Maui.ApplicationModel.Platform.CurrentActivity!, [
-            global::Android.Manifest.Permission.Bluetooth,
-            global::Android.Manifest.Permission.BluetoothAdmin,
-            global::Android.Manifest.Permission.BluetoothAdvertise,
-            global::Android.Manifest.Permission.BluetoothConnect,
-            global::Android.Manifest.Permission.BluetoothPrivileged,
-            global::Android.Manifest.Permission.BluetoothScan,
-            global::Android.Manifest.Permission.AccessCoarseLocation,
-            global::Android.Manifest.Permission.AccessFineLocation,
-            //"android.hardware.sensor.accelerometer"
-        ], 1);
-        return Task.CompletedTask;
+        // Verify that we're not already in discovery mode
+        if (!flagService.TryGetFlag("BluetoothService.StartDiscovery", out _))
+        {
+            ActivityCompat.RequestPermissions(global::Microsoft.Maui.ApplicationModel.Platform.CurrentActivity!, [
+                global::Android.Manifest.Permission.Bluetooth,
+                    global::Android.Manifest.Permission.BluetoothAdmin,
+                    global::Android.Manifest.Permission.BluetoothAdvertise,
+                    global::Android.Manifest.Permission.BluetoothConnect,
+                    global::Android.Manifest.Permission.BluetoothPrivileged,
+                    global::Android.Manifest.Permission.BluetoothScan,
+                    global::Android.Manifest.Permission.AccessCoarseLocation,
+                    global::Android.Manifest.Permission.AccessFineLocation,
+                    //"android.hardware.sensor.accelerometer"
+                ], 1);
+
+            await Task.Run(async () =>
+            {
+                while (!flagService.TryGetFlag("BluetoothService.StartDiscovery", out var flag) && flag == "1")
+                {
+                    await Task.Delay(100);
+                }
+            });
+
+            BluetoothAdapter.DefaultAdapter!.StartDiscovery();
+        }
     }
 
     private void BluetoothReceiver_UuidFetched(object? sender, Platforms.Android.CustomCode.EventArgs.UuidFetchedEventArgs e)
@@ -83,12 +97,12 @@ internal class BluetoothService : IBluetoothService
     {
         if (e.Device?.Name is string name)
             await deviceFound(name);
-            //BluetoothDevices.Add(name);
+        //BluetoothDevices.Add(name);
     }
 
     private void BluetoothReceiver_DiscoveryFinished(object? sender, EventArgs e)
     {
-        IsDiscovering = false;
+        //IsDiscovering = false;
         discoveryFinished();
     }
 

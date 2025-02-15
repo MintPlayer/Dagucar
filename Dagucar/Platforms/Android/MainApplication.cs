@@ -17,6 +17,7 @@ namespace Dagucar
         {
             var app = MauiProgram.CreateMauiApp();
             app.Services.AddSingleton<IBluetoothService, BluetoothService>();
+            app.Services.AddSingleton<IFlagService, FlagService>();
             return app.Build();
         }
     }

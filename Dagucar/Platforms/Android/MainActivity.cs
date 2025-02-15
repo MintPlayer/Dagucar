@@ -17,7 +17,8 @@ namespace Dagucar
             Microsoft.Maui.ApplicationModel.Platform.OnRequestPermissionsResult(requestCode, permissions, grantResults);
             base.OnRequestPermissionsResult(requestCode, permissions, grantResults);
 
-            BluetoothAdapter.DefaultAdapter!.StartDiscovery();
+            var flagService = IPlatformApplication.Current!.Services.GetRequiredService<Services.IFlagService>();
+            flagService.SetFlag("BluetoothService.StartDiscovery", "1");
         }
     }
 }

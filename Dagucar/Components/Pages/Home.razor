@@ -37,7 +37,7 @@ Welcome to your new app.
         isDiscovering = true;
         devices.Clear();
         await Task.Delay(10);
-        await bluetoothService.StartDiscovery(OnDeviceDiscovered, OnDiscoveryFinished);
+        await bluetoothService.StartDiscovery();
     }
 
     private async Task OnDeviceDiscovered(string deviceName)
