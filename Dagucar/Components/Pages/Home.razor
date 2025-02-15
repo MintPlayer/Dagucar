@@ -23,7 +23,7 @@ Welcome to your new app.
 <ul class="list-group">
     @foreach (var device in devices)
     {
-        <li class="list-group-item">@device</li>
+        <li class="list-group-item" onclick="() => ConnectToDevice(device)">@device</li>
     }
 </ul>
 
@@ -35,6 +35,8 @@ Welcome to your new app.
     private async Task StartDiscovery()
     {
         isDiscovering = true;
+        devices.Clear();
+        await Task.Delay(10);
         await bluetoothService.StartDiscovery(OnDeviceDiscovered, OnDiscoveryFinished);
     }
 
