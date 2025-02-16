@@ -20,17 +20,34 @@ Welcome to your new app.
         }
     }
 </span>
+<h2>Found devices</h2>
 <ul class="list-group">
     @foreach (var device in devices)
     {
-        <li class="list-group-item" onclick="() => ConnectToDevice(device)">@device</li>
+        <li class="list-group-item" @onclick="() => CreateBond(device)">@device.Name</li>
+    }
+</ul>
+<h2>Bonded devices</h2>
+<ul class="list-group">
+    @foreach (var device in bondedDevices)
+    {
+        <li class="list-group-item" @onclick="() => ConnectToDevice(device)">@device.Name</li>
     }
 </ul>
 
 @code
 {
     private bool isDiscovering = false;
-    private ObservableCollection<string> devices = new();
+    private ObservableCollection<BluetoothDevice> devices = new();
+    private ObservableCollection<BluetoothDevice> bondedDevices = new();
+
+    override protected async Task OnInitializedAsync()
+    {
+        this.bondedDevices.Clear();
+        var bondedDevices = await bluetoothService.GetBondedDevices();
+        foreach (var device in bondedDevices)
+            this.bondedDevices.Add(device);
+    }
 
     private async Task StartDiscovery()
     {
@@ -40,11 +57,11 @@ Welcome to your new app.
         var success = await bluetoothService.StartDiscovery(OnDeviceDiscovered, OnDiscoveryFinished);
     }
 
-    private async Task OnDeviceDiscovered(string deviceName)
+    private async Task OnDeviceDiscovered(BluetoothDevice device)
     {
         await InvokeAsync(() =>
         {
-            devices.Add(deviceName);
+            devices.Add(device);
             StateHasChanged(); // Have to do this before the UI updates
         });
     }
@@ -63,5 +80,15 @@ Welcome to your new app.
         var cancelled = await bluetoothService.StopDiscovery();
         // Why do i need to call this?
         await OnDiscoveryFinished();
+    }
+
+    private async Task CreateBond(BluetoothDevice device)
+    {
+        await bluetoothService.CreateBond(device);
+    }
+
+    private async Task ConnectToDevice(BluetoothDevice device)
+    {
+        // await bluetoothService.CreateBond(device);
     }
 }

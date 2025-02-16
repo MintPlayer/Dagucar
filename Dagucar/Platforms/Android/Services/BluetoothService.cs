@@ -3,6 +3,8 @@ using AndroidX.Core.App;
 using Dagucar.Platforms.Android.CustomCode;
 using Dagucar.Services;
 using System.Collections.ObjectModel;
+using AndroidBluetoothDevice = Android.Bluetooth.BluetoothDevice;
+using DagucarBluetoothDevice = Dagucar.Services.BluetoothDevice;
 
 namespace Dagucar.Platforms.Android.Services;
 
@@ -29,32 +31,33 @@ internal class BluetoothService : IBluetoothService
         bluetoothReceiver.DiscoveryFinished += BluetoothReceiver_DiscoveryFinished;
         bluetoothReceiver.DeviceFound += BluetoothReceiver_DeviceFound;
         bluetoothReceiver.UuidFetched += BluetoothReceiver_UuidFetched;
+        bluetoothReceiver.BondStateChanged += BluetoothReceiver_BondStateChanged;
 
-        foreach (var action in new[] { BluetoothDevice.ActionFound, BluetoothAdapter.ActionDiscoveryStarted, BluetoothAdapter.ActionDiscoveryFinished, BluetoothDevice.ActionBondStateChanged })
+        foreach (var action in new[] { AndroidBluetoothDevice.ActionFound, BluetoothAdapter.ActionDiscoveryStarted, BluetoothAdapter.ActionDiscoveryFinished, AndroidBluetoothDevice.ActionBondStateChanged })
             context.RegisterReceiver(bluetoothReceiver, new global::Android.Content.IntentFilter(action));
         this.flagService = flagService;
     }
 
     public void Dispose()
     {
-        //if (bluetoothReceiver != null)
-        //{
-        //    foreach (var action in new[] { BluetoothDevice.ActionFound, BluetoothAdapter.ActionDiscoveryStarted, BluetoothAdapter.ActionDiscoveryFinished, BluetoothDevice.ActionBondStateChanged })
-        //        context.UnregisterReceiver(bluetoothReceiver);
+        if (bluetoothReceiver != null)
+        {
+            foreach (var action in new[] { AndroidBluetoothDevice.ActionFound, BluetoothAdapter.ActionDiscoveryStarted, BluetoothAdapter.ActionDiscoveryFinished, AndroidBluetoothDevice.ActionBondStateChanged })
+                context.UnregisterReceiver(bluetoothReceiver);
 
-        //    bluetoothReceiver.DiscoveryStarted -= BluetoothReceiver_DiscoveryStarted;
-        //    bluetoothReceiver.DiscoveryFinished -= BluetoothReceiver_DiscoveryFinished;
-        //    bluetoothReceiver.DeviceFound -= BluetoothReceiver_DeviceFound;
-        //    bluetoothReceiver.UuidFetched -= BluetoothReceiver_UuidFetched;
+            bluetoothReceiver.DiscoveryStarted -= BluetoothReceiver_DiscoveryStarted;
+            bluetoothReceiver.DiscoveryFinished -= BluetoothReceiver_DiscoveryFinished;
+            bluetoothReceiver.DeviceFound -= BluetoothReceiver_DeviceFound;
+            bluetoothReceiver.UuidFetched -= BluetoothReceiver_UuidFetched;
 
-        //    bluetoothReceiver.Dispose();
-        //    bluetoothReceiver = null;
-        //}
+            bluetoothReceiver.Dispose();
+            bluetoothReceiver = null;
+        }
     }
 
-    private Func<string, Task> deviceFound;
+    private Func<DagucarBluetoothDevice, Task> deviceFound;
     private Func<Task> discoveryFinished;
-    public async Task<bool> StartDiscovery(Func<string, Task> deviceFound, Func<Task> discoveryFinished)
+    public async Task<bool> StartDiscovery(Func<DagucarBluetoothDevice, Task> deviceFound, Func<Task> discoveryFinished)
     {
         //if (IsDiscovering) throw new InvalidOperationException();
 
@@ -104,8 +107,10 @@ internal class BluetoothService : IBluetoothService
 
     private async void BluetoothReceiver_DeviceFound(object? sender, Platforms.Android.CustomCode.EventArgs.DeviceFoundEventArgs e)
     {
-        if (e.Device?.Name is string name)
-            await deviceFound(name);
+        if (e.Device is AndroidBluetoothDevice device && !string.IsNullOrEmpty(device.Name))
+        {
+            await deviceFound(new() { Name = device.Name!, Address = device.Address! });
+        }
         //BluetoothDevices.Add(name);
     }
 
@@ -118,5 +123,24 @@ internal class BluetoothService : IBluetoothService
 
     private void BluetoothReceiver_DiscoveryStarted(object? sender, EventArgs e)
     {
+    }
+
+    public Task<bool> CreateBond(DagucarBluetoothDevice ddevice)
+    {
+        var device = BluetoothAdapter.DefaultAdapter!.GetRemoteDevice(ddevice.Address);
+        device.CreateBond();
+        return Task.FromResult(device != null);
+    }
+
+    private void BluetoothReceiver_BondStateChanged(object? sender, CustomCode.EventArgs.BondStateChangedEventArgs e)
+    {
+
+    }
+
+    public Task<IEnumerable<DagucarBluetoothDevice>> GetBondedDevices()
+    {
+        var devices = BluetoothAdapter.DefaultAdapter!.BondedDevices;
+        var result = devices.Select(d => new DagucarBluetoothDevice { Name = d.Name, Address = d.Address });
+        return Task.FromResult(result);
     }
 }
