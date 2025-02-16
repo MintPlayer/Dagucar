@@ -37,7 +37,7 @@ Welcome to your new app.
         isDiscovering = true;
         devices.Clear();
         await Task.Delay(10);
-        await bluetoothService.StartDiscovery();
+        var success = await bluetoothService.StartDiscovery(OnDeviceDiscovered, OnDiscoveryFinished);
     }
 
     private async Task OnDeviceDiscovered(string deviceName)
@@ -58,8 +58,10 @@ Welcome to your new app.
         });
     }
 
-    private void StopDiscovery()
+    private async Task StopDiscovery()
     {
-        isDiscovering = false;
+        var cancelled = await bluetoothService.StopDiscovery();
+        // Why do i need to call this?
+        await OnDiscoveryFinished();
     }
 }

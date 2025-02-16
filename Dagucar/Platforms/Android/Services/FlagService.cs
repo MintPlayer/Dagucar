@@ -6,6 +6,12 @@ internal class FlagService : IFlagService
 {
     private readonly Dictionary<string, string> values = new();
 
+    public void ClearFlag(string key)
+    {
+        if (values.ContainsKey(key))
+            values.Remove(key);
+    }
+
     public string? GetFlag(string key)
     {
         if (values.TryGetValue(key, out var value))
