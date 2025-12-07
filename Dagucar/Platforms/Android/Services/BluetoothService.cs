@@ -278,8 +278,7 @@ internal class BluetoothService : IBluetoothService
     {
         return
         [
-            0x09, 0x00,             // message length (little endian)
-            0x00,                   // hub id
+            0x08, 0x00,             // message length (little endian) incl. hub id and payload
             0x81,                   // Port Output Command
             port,                   // Port
             0x11,                   // Start execution + feedback
