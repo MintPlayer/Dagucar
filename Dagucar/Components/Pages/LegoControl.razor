@@ -13,6 +13,7 @@
         <p>Device: @(targetDevice?.Name ?? "Unknown") (@(targetDevice?.Address ?? "n/a"))</p>
         <p>Lego status: @(legoConnected ? "Connected" : "Not connected")</p>
         <p>Accelerometer: @(accelerometerRunning ? "streaming" : "stopped")</p>
+        <p>Commanded drive/steer: @($"{lastDriveSent:F0}% / {lastSteerSent:F0}%")</p>
         <div class="btn-group">
             <button class="btn btn-success" @onclick="() => Connect(targetDevice)" disabled="@(legoConnected || targetDevice is null)">Connect & start control</button>
             <button class="btn btn-danger" @onclick="StopLego" disabled="@( !legoConnected )">Stop control</button>
@@ -33,6 +34,9 @@
     private bool accelerometerRunning;
     private double targetDrive;
     private double targetSteer;
+    private double lastDriveSent;
+    private double lastSteerSent;
+    private DateTime lastUiUpdate = DateTime.MinValue;
     private CancellationTokenSource? controlCts;
     private bool initialized;
 
@@ -84,6 +88,15 @@
                 var drive = (int)Math.Clamp(targetDrive, -100, 100);
                 var steer = (int)Math.Clamp(targetSteer, -100, 100);
                 await bluetoothService.SendLegoControlAsync(drive, steer, controlCts.Token);
+                lastDriveSent = drive;
+                lastSteerSent = steer;
+
+                if ((DateTime.UtcNow - lastUiUpdate).TotalMilliseconds > 150)
+                {
+                    lastUiUpdate = DateTime.UtcNow;
+                    await InvokeAsync(StateHasChanged);
+                }
+
                 await Task.Delay(60, controlCts.Token);
             }
         });
@@ -94,7 +107,7 @@
         var reading = e.Reading.Acceleration;
         // Tilt forward/back on Y for drive, tilt left/right on X for steering
         targetDrive = MapToPercent(-reading.Y);
-        targetSteer = MapToPercent(reading.X);
+        targetSteer = MapToPercent(-reading.X); // invert to correct left/right
     }
 
     private static double MapToPercent(double axis)
@@ -106,30 +119,30 @@
 
     private async Task StopLego()
     {
-        if (accelerometerRunning)
+        try
         {
-            try
+            if (accelerometerRunning)
             {
                 Accelerometer.ReadingChanged -= Accelerometer_ReadingChanged;
                 Accelerometer.Stop();
+                accelerometerRunning = false;
             }
-            catch
+
+            if (controlCts != null)
             {
-                // ignore stop failures
+                controlCts.Cancel();
+                controlCts.Dispose();
+                controlCts = null;
             }
-            accelerometerRunning = false;
-        }
 
-        if (controlCts != null)
+            await bluetoothService.DisconnectLegoAsync();
+            legoConnected = false;
+            await InvokeAsync(StateHasChanged);
+        }
+        catch
         {
-            controlCts.Cancel();
-            controlCts.Dispose();
-            controlCts = null;
+            // Swallow cleanup exceptions to avoid crashing on stop
         }
-
-        await bluetoothService.DisconnectLegoAsync();
-        legoConnected = false;
-        await InvokeAsync(StateHasChanged);
     }
 
     public async ValueTask DisposeAsync()

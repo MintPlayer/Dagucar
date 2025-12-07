@@ -181,6 +181,12 @@ internal class BluetoothService : IBluetoothService
                 return false;
 
             legoConnected = legoReadyTcs.Task.Status == TaskStatus.RanToCompletion && legoReadyTcs.Task.Result;
+            if (legoConnected)
+            {
+                // Send an initial stop to ensure motors are idle
+                await SendLegoControlAsync(0, 0, cancellationToken);
+            }
+
             return legoConnected;
         }
     }
@@ -227,7 +233,7 @@ internal class BluetoothService : IBluetoothService
     {
         legoGatt = gatt;
         legoWriteCharacteristic = characteristic;
-        legoWriteCharacteristic.WriteType = GattWriteType.Default;
+        legoWriteCharacteristic.WriteType = GattWriteType.NoResponse;
         legoConnected = true;
         legoReadyTcs?.TrySetResult(true);
     }
@@ -276,9 +282,11 @@ internal class BluetoothService : IBluetoothService
 
     private static byte[] BuildMotorCommand(byte port, sbyte power)
     {
+        // LEGO LWP3 "WriteDirectModeData" message: [len][hubId][0x81][port][startup/completion][0x51][mode][value]
         return
         [
-            0x08, 0x00,             // message length (little endian) incl. hub id and payload
+            0x09, 0x00,             // length (little endian, includes this header)
+            0x00,                   // hub id (0)
             0x81,                   // Port Output Command
             port,                   // Port
             0x11,                   // Start execution + feedback
