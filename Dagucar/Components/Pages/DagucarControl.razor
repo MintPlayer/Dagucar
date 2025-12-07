@@ -1,0 +1,29 @@
+@page "/dagucar"
+@using Dagucar.Services
+@inject NavigationManager NavigationManager
+
+<h1>Dagucar control</h1>
+
+<p>This page is a placeholder for the Dagucar control experience. It was reached from Home using the bonded device list.</p>
+<p>Device: @(Name ?? "Unknown") (@(Address ?? "n/a"))</p>
+
+<div class="alert alert-info">
+    Implement the Dagucar driving UI here (e.g. joystick/buttons/accelerometer) and reuse your existing device control logic from the previous branch. Navigation preserves the device address in the query parameters below.
+</div>
+
+<div class="card">
+    <div class="card-body">
+        <p><strong>Address</strong>: @Address</p>
+        <p><strong>Name</strong>: @Name</p>
+        <button class="btn btn-secondary" @onclick='() => NavigationManager.NavigateTo("/")'>Back to Home</button>
+    </div>
+</div>
+
+@code
+{
+    [SupplyParameterFromQuery(Name = "addr")]
+    public string? Address { get; set; }
+
+    [SupplyParameterFromQuery(Name = "name")]
+    public string? Name { get; set; }
+}

@@ -1,0 +1,139 @@
+@page "/lego"
+@using Dagucar.Services
+@using Microsoft.Maui.Devices.Sensors
+@using System.Threading
+@implements IAsyncDisposable
+
+@inject IBluetoothService bluetoothService;
+
+<h1>Lego TopGear control</h1>
+
+<div class="card mb-3">
+    <div class="card-body">
+        <p>Device: @(targetDevice?.Name ?? "Unknown") (@(targetDevice?.Address ?? "n/a"))</p>
+        <p>Lego status: @(legoConnected ? "Connected" : "Not connected")</p>
+        <p>Accelerometer: @(accelerometerRunning ? "streaming" : "stopped")</p>
+        <div class="btn-group">
+            <button class="btn btn-success" @onclick="() => Connect(targetDevice)" disabled="@(legoConnected || targetDevice is null)">Connect & start control</button>
+            <button class="btn btn-danger" @onclick="StopLego" disabled="@( !legoConnected )">Stop control</button>
+        </div>
+    </div>
+</div>
+
+@code
+{
+    [SupplyParameterFromQuery(Name = "addr")]
+    public string? Address { get; set; }
+
+    [SupplyParameterFromQuery(Name = "name")]
+    public string? Name { get; set; }
+
+    private BluetoothDevice? targetDevice;
+    private bool legoConnected;
+    private bool accelerometerRunning;
+    private double targetDrive;
+    private double targetSteer;
+    private CancellationTokenSource? controlCts;
+    private bool initialized;
+
+    protected override async Task OnParametersSetAsync()
+    {
+        if (initialized)
+            return;
+
+        initialized = true;
+
+        if (!string.IsNullOrWhiteSpace(Address))
+        {
+            targetDevice = new BluetoothDevice { Address = Address, Name = Name ?? "Lego" };
+            await Connect(targetDevice);
+        }
+    }
+
+    private async Task Connect(BluetoothDevice? device)
+    {
+        if (device is null)
+            return;
+
+        await StopLego();
+
+        var success = await bluetoothService.ConnectToLegoAsync(device);
+        legoConnected = success && bluetoothService.IsLegoConnected;
+
+        if (legoConnected)
+        {
+            StartAccelerometerControl();
+        }
+        await InvokeAsync(StateHasChanged);
+    }
+
+    private void StartAccelerometerControl()
+    {
+        if (accelerometerRunning)
+            return;
+
+        controlCts = new();
+        Accelerometer.ReadingChanged += Accelerometer_ReadingChanged;
+        Accelerometer.Start(SensorSpeed.Game);
+        accelerometerRunning = true;
+
+        _ = Task.Run(async () =>
+        {
+            while (!controlCts.IsCancellationRequested && bluetoothService.IsLegoConnected)
+            {
+                var drive = (int)Math.Clamp(targetDrive, -100, 100);
+                var steer = (int)Math.Clamp(targetSteer, -100, 100);
+                await bluetoothService.SendLegoControlAsync(drive, steer, controlCts.Token);
+                await Task.Delay(60, controlCts.Token);
+            }
+        });
+    }
+
+    private void Accelerometer_ReadingChanged(object? sender, AccelerometerChangedEventArgs e)
+    {
+        var reading = e.Reading.Acceleration;
+        // Tilt forward/back on Y for drive, tilt left/right on X for steering
+        targetDrive = MapToPercent(-reading.Y);
+        targetSteer = MapToPercent(reading.X);
+    }
+
+    private static double MapToPercent(double axis)
+    {
+        // Axis typically in range -1.5..1.5g while moving; clamp to keep car controllable
+        var normalized = Math.Clamp(axis, -1.2, 1.2) / 1.2;
+        return normalized * 100;
+    }
+
+    private async Task StopLego()
+    {
+        if (accelerometerRunning)
+        {
+            try
+            {
+                Accelerometer.ReadingChanged -= Accelerometer_ReadingChanged;
+                Accelerometer.Stop();
+            }
+            catch
+            {
+                // ignore stop failures
+            }
+            accelerometerRunning = false;
+        }
+
+        if (controlCts != null)
+        {
+            controlCts.Cancel();
+            controlCts.Dispose();
+            controlCts = null;
+        }
+
+        await bluetoothService.DisconnectLegoAsync();
+        legoConnected = false;
+        await InvokeAsync(StateHasChanged);
+    }
+
+    public async ValueTask DisposeAsync()
+    {
+        await StopLego();
+    }
+}

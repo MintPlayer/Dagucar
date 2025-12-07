@@ -1,8 +1,10 @@
 ﻿@page "/"
 @using Dagucar.Services
 @using System.Collections.ObjectModel
+@using System.Linq
 
 @inject IBluetoothService bluetoothService;
+@inject NavigationManager NavigationManager;
 
 <h1>Hello, world!</h1>
 
@@ -31,7 +33,10 @@ Welcome to your new app.
 <ul class="list-group">
     @foreach (var device in bondedDevices)
     {
-        <li class="list-group-item" @onclick="() => ConnectToDevice(device)">@device.Name</li>
+        <li class="list-group-item d-flex justify-content-between align-items-center">
+            <span>@device.Name</span>
+            <button class="btn btn-primary btn-sm" @onclick="() => ConnectToDevice(device)">Connect</button>
+        </li>
     }
 </ul>
 
@@ -40,6 +45,8 @@ Welcome to your new app.
     private bool isDiscovering = false;
     private ObservableCollection<BluetoothDevice> devices = new();
     private ObservableCollection<BluetoothDevice> bondedDevices = new();
+    private readonly string[] legoAddressPrefixes = new[] { "90:84:2B", "58:2B:DB", "7C:66:9D" }; // common LEGO Control+ hubs
+    private readonly string[] dagucarAddressPrefixes = new[] { "98:D3:31", "00:21:13", "D8:A0:1D" }; // adjust to your DaguCar module
 
     override protected async Task OnInitializedAsync()
     {
@@ -87,8 +94,40 @@ Welcome to your new app.
         await bluetoothService.CreateBond(device);
     }
 
-    private async Task ConnectToDevice(BluetoothDevice device)
+    private Task ConnectToDevice(BluetoothDevice device)
     {
-        // await bluetoothService.CreateBond(device);
+        var target = device ?? throw new ArgumentNullException(nameof(device));
+        var address = target.Address ?? string.Empty;
+
+        if (IsLegoDevice(target))
+        {
+            NavigateToControl("/lego", target);
+        }
+        else if (IsDagucarDevice(target))
+        {
+            NavigateToControl("/dagucar", target);
+        }
+
+        return Task.CompletedTask;
+    }
+
+    private void NavigateToControl(string basePath, BluetoothDevice device)
+    {
+        var addr = Uri.EscapeDataString(device.Address ?? string.Empty);
+        var name = Uri.EscapeDataString(device.Name ?? string.Empty);
+        NavigationManager.NavigateTo($"{basePath}?addr={addr}&name={name}");
+    }
+
+    private bool IsLegoDevice(BluetoothDevice device)
+    {
+        if (!string.IsNullOrWhiteSpace(device.Name) && device.Name.Contains("LEGO", StringComparison.OrdinalIgnoreCase))
+            return true;
+
+        return legoAddressPrefixes.Any(p => (device.Address ?? string.Empty).StartsWith(p, StringComparison.OrdinalIgnoreCase));
+    }
+
+    private bool IsDagucarDevice(BluetoothDevice device)
+    {
+        return dagucarAddressPrefixes.Any(p => (device.Address ?? string.Empty).StartsWith(p, StringComparison.OrdinalIgnoreCase));
     }
 }
