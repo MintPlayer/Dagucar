@@ -26,7 +26,13 @@ Welcome to your new app.
 <ul class="list-group">
     @foreach (var device in devices)
     {
-        <li class="list-group-item" @onclick="() => CreateBond(device)">@device.Name</li>
+        <li class="list-group-item d-flex justify-content-between align-items-center">
+            <span>@device.Name</span>
+            <div class="btn-group">
+                <button class="btn btn-outline-secondary btn-sm" @onclick="() => CreateBond(device)">Bond</button>
+                <button class="btn btn-primary btn-sm" @onclick="() => ConnectToDevice(device)">Connect</button>
+            </div>
+        </li>
     }
 </ul>
 <h2>Bonded devices</h2>
