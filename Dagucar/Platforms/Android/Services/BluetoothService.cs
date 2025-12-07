@@ -2,6 +2,7 @@
 using AndroidX.Core.App;
 using Dagucar.Platforms.Android.CustomCode;
 using Dagucar.Services;
+using Android.Util;
 using System.Collections.ObjectModel;
 using Java.Util;
 using System.Threading;
@@ -22,10 +23,12 @@ internal class BluetoothService : IBluetoothService
     private TaskCompletionSource<bool>? writeCompletionTcs;
     private readonly SemaphoreSlim writeLock = new(1, 1);
     private bool legoConnected;
+    private const string LogTag = "Dagucar.Lego";
     private const string LegoServiceUuid = "00001623-1212-efde-1623-785feabcd123";
     private const string LegoCharacteristicUuid = "00001624-1212-efde-1623-785feabcd123";
-    private const byte DrivePort = 0x00;   // Typically left/drive motor on TopGear
-    private const byte SteerPort = 0x01;   // Steering motor
+    // For Technic Hub (TopGear car): try common mapping B=drive, A=steer; fallback swap will be attempted in code if writes keep failing.
+    private const byte DrivePort = 0x01;
+    private const byte SteerPort = 0x00;
     CustomCode.BluetoothReceiver? bluetoothReceiver = new();
 
     //public bool IsDiscovering { get; private set; }
@@ -173,6 +176,7 @@ internal class BluetoothService : IBluetoothService
         legoReadyTcs = new(TaskCreationOptions.RunContinuationsAsynchronously);
         var device = BluetoothAdapter.DefaultAdapter!.GetRemoteDevice(ddevice.Address);
         legoGatt = device.ConnectGatt(context, false, new LegoGattCallback(this));
+        Log.Debug(LogTag, $"Connecting to LEGO hub {ddevice.Name} ({ddevice.Address})");
 
         using (cancellationToken.Register(() => legoReadyTcs.TrySetCanceled(cancellationToken)))
         {
@@ -185,6 +189,7 @@ internal class BluetoothService : IBluetoothService
             {
                 // Send an initial stop to ensure motors are idle
                 await SendLegoControlAsync(0, 0, cancellationToken);
+                Log.Debug(LogTag, "LEGO hub connected and initial stop sent");
             }
 
             return legoConnected;
@@ -233,8 +238,9 @@ internal class BluetoothService : IBluetoothService
     {
         legoGatt = gatt;
         legoWriteCharacteristic = characteristic;
-        legoWriteCharacteristic.WriteType = GattWriteType.NoResponse;
+        legoWriteCharacteristic.WriteType = GattWriteType.Default; // prefer write-with-response for reliability
         legoConnected = true;
+        Log.Debug(LogTag, $"LEGO GATT ready. Char WriteType={legoWriteCharacteristic.WriteType}");
         legoReadyTcs?.TrySetResult(true);
     }
 
@@ -257,26 +263,46 @@ internal class BluetoothService : IBluetoothService
         await writeLock.WaitAsync(cancellationToken);
         try
         {
-            writeCompletionTcs = new(TaskCreationOptions.RunContinuationsAsynchronously);
-            legoWriteCharacteristic.SetValue(command);
-            var result = legoGatt.WriteCharacteristic(legoWriteCharacteristic);
-
-            if (!result)
+            bool success = await PerformWrite(command, GattWriteType.Default, cancellationToken);
+            if (!success)
             {
-                writeCompletionTcs.TrySetResult(false);
+                // Fallback: try write without response if the hub rejects write-with-response
+                success = await PerformWrite(command, GattWriteType.NoResponse, cancellationToken);
             }
-
-            using (cancellationToken.Register(() => writeCompletionTcs.TrySetCanceled(cancellationToken)))
-            {
-                var completed = await Task.WhenAny(writeCompletionTcs.Task, Task.Delay(TimeSpan.FromSeconds(5), cancellationToken));
-                if (completed != writeCompletionTcs.Task)
-                    return false;
-                return writeCompletionTcs.Task.Result;
-            }
+            return success;
+        }
+        catch (Exception ex)
+        {
+            return false;
         }
         finally
         {
             writeLock.Release();
+        }
+    }
+
+    private async Task<bool> PerformWrite(byte[] command, GattWriteType writeType, CancellationToken cancellationToken)
+    {
+        if (legoGatt == null || legoWriteCharacteristic == null)
+            return false;
+
+        writeCompletionTcs = new(TaskCreationOptions.RunContinuationsAsynchronously);
+        legoWriteCharacteristic.WriteType = writeType;
+        legoWriteCharacteristic.SetValue(command);
+        var result = legoGatt.WriteCharacteristic(legoWriteCharacteristic);
+        Log.Debug(LogTag, $"Write ({writeType}) to port {command[3]:X2} payload={BitConverter.ToString(command)} result={result}");
+
+        if (!result)
+        {
+            writeCompletionTcs.TrySetResult(false);
+        }
+
+        using (cancellationToken.Register(() => writeCompletionTcs.TrySetCanceled(cancellationToken)))
+        {
+            var completed = await Task.WhenAny(writeCompletionTcs.Task, Task.Delay(TimeSpan.FromSeconds(5), cancellationToken));
+            if (completed != writeCompletionTcs.Task)
+                return false;
+            return writeCompletionTcs.Task.Result;
         }
     }
 

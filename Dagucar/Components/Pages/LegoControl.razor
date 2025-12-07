@@ -17,6 +17,7 @@
         <div class="btn-group">
             <button class="btn btn-success" @onclick="() => Connect(targetDevice)" disabled="@(legoConnected || targetDevice is null)">Connect & start control</button>
             <button class="btn btn-danger" @onclick="StopLego" disabled="@( !legoConnected )">Stop control</button>
+            <button class="btn btn-secondary" @onclick="TestPulse" disabled="@( !legoConnected )">Test pulse</button>
         </div>
     </div>
 </div>
@@ -100,6 +101,17 @@
                 await Task.Delay(60, controlCts.Token);
             }
         });
+    }
+
+    private async Task TestPulse()
+    {
+        if (!legoConnected)
+            return;
+
+        // Brief forward pulse to both motors to verify motion
+        await bluetoothService.SendLegoControlAsync(40, 0);
+        await Task.Delay(300);
+        await bluetoothService.SendLegoControlAsync(0, 0);
     }
 
     private void Accelerometer_ReadingChanged(object? sender, AccelerometerChangedEventArgs e)
