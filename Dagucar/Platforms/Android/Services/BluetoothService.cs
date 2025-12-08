@@ -26,9 +26,10 @@ internal class BluetoothService : IBluetoothService
     private const string LogTag = "Dagucar.Lego";
     private const string LegoServiceUuid = "00001623-1212-efde-1623-785feabcd123";
     private const string LegoCharacteristicUuid = "00001624-1212-efde-1623-785feabcd123";
-    // For Technic Hub (TopGear car): try common mapping B=drive, A=steer; fallback swap will be attempted in code if writes keep failing.
-    private const byte DrivePort = 0x01;
-    private const byte SteerPort = 0x00;
+    // LEGO 42109 Top Gear Rally Car: Port B = Steering, Port D = Drive
+    // Reference: https://pybricks.com/project/technic-42109-xbox/
+    private const byte SteerPort = 0x01;  // Port B
+    private const byte DrivePort = 0x03;  // Port D
     CustomCode.BluetoothReceiver? bluetoothReceiver = new();
 
     //public bool IsDiscovering { get; private set; }
@@ -263,16 +264,20 @@ internal class BluetoothService : IBluetoothService
         await writeLock.WaitAsync(cancellationToken);
         try
         {
-            bool success = await PerformWrite(command, GattWriteType.Default, cancellationToken);
-            if (!success)
-            {
-                // Fallback: try write without response if the hub rejects write-with-response
-                success = await PerformWrite(command, GattWriteType.NoResponse, cancellationToken);
-            }
-            return success;
+            // Use WriteNoResponse for motor commands - this is what Legoino and other libraries use
+            // WriteWithResponse can cause delays and the hub handles rapid commands better without response
+            legoWriteCharacteristic.WriteType = GattWriteType.NoResponse;
+            legoWriteCharacteristic.SetValue(command);
+            var result = legoGatt.WriteCharacteristic(legoWriteCharacteristic);
+            Log.Debug(LogTag, $"Write to port {command[3]:X2} payload={BitConverter.ToString(command)} result={result}");
+
+            // Small delay to allow the BLE stack to process (avoid flooding)
+            await Task.Delay(10, cancellationToken);
+            return result;
         }
         catch (Exception ex)
         {
+            Log.Error(LogTag, $"Write failed: {ex.Message}");
             return false;
         }
         finally
@@ -281,44 +286,21 @@ internal class BluetoothService : IBluetoothService
         }
     }
 
-    private async Task<bool> PerformWrite(byte[] command, GattWriteType writeType, CancellationToken cancellationToken)
-    {
-        if (legoGatt == null || legoWriteCharacteristic == null)
-            return false;
-
-        writeCompletionTcs = new(TaskCreationOptions.RunContinuationsAsynchronously);
-        legoWriteCharacteristic.WriteType = writeType;
-        legoWriteCharacteristic.SetValue(command);
-        var result = legoGatt.WriteCharacteristic(legoWriteCharacteristic);
-        Log.Debug(LogTag, $"Write ({writeType}) to port {command[3]:X2} payload={BitConverter.ToString(command)} result={result}");
-
-        if (!result)
-        {
-            writeCompletionTcs.TrySetResult(false);
-        }
-
-        using (cancellationToken.Register(() => writeCompletionTcs.TrySetCanceled(cancellationToken)))
-        {
-            var completed = await Task.WhenAny(writeCompletionTcs.Task, Task.Delay(TimeSpan.FromSeconds(5), cancellationToken));
-            if (completed != writeCompletionTcs.Task)
-                return false;
-            return writeCompletionTcs.Task.Result;
-        }
-    }
-
     private static byte[] BuildMotorCommand(byte port, sbyte power)
     {
-        // LEGO LWP3 "WriteDirectModeData" message: [len][hubId][0x81][port][startup/completion][0x51][mode][value]
+        // LEGO LWP3 "WriteDirectModeData" message: [len][hubId][msgType][port][startup/completion][subCmd][mode][value]
+        // Length is a single byte for messages < 127 bytes, representing total message length INCLUDING the length byte itself
+        // Reference: https://lego.github.io/lego-ble-wireless-protocol-docs/
         return
         [
-            0x09, 0x00,             // length (little endian, includes this header)
+            0x08,                   // length (8 bytes total including this byte)
             0x00,                   // hub id (0)
-            0x81,                   // Port Output Command
-            port,                   // Port
-            0x11,                   // Start execution + feedback
-            0x51,                   // WriteDirectModeData (set speed)
-            0x00,                   // Mode 0 (duty cycle / speed)
-            unchecked((byte)power)
+            0x81,                   // Port Output Command (message type)
+            port,                   // Port (A=0, B=1, C=2, D=3)
+            0x11,                   // Startup/Completion: Execute immediately (0x10) + Command feedback (0x01)
+            0x51,                   // WriteDirectModeData sub-command
+            0x00,                   // Mode 0 (power/duty cycle)
+            unchecked((byte)power)  // Power value (-100 to +100)
         ];
     }
 
