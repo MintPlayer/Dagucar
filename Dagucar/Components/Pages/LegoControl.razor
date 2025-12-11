@@ -88,9 +88,18 @@
             {
                 var drive = (int)Math.Clamp(targetDrive, -100, 100);
                 var steer = (int)Math.Clamp(targetSteer, -100, 100);
-                await bluetoothService.SendLegoControlAsync(drive, steer, controlCts.Token);
-                lastDriveSent = drive;
-                lastSteerSent = steer;
+
+                // Only send commands if values have changed significantly (debounce with threshold)
+                const int threshold = 3;
+                var driveChanged = Math.Abs(drive - (int)lastDriveSent) >= threshold;
+                var steerChanged = Math.Abs(steer - (int)lastSteerSent) >= threshold;
+
+                if (driveChanged || steerChanged)
+                {
+                    await bluetoothService.SendLegoControlAsync(drive, steer, controlCts.Token);
+                    lastDriveSent = drive;
+                    lastSteerSent = steer;
+                }
 
                 if ((DateTime.UtcNow - lastUiUpdate).TotalMilliseconds > 150)
                 {
@@ -137,7 +146,13 @@
         const double maxSteerPercent = 100.0;
 
         // Normalize axis to -1..1 range
-        var normalized = Math.Clamp(axis, -1.2, 1.2) / 1.2;
+        // Divide by a smaller value to require more tilt for full steering (less sensitive)
+        // At 15° tilt, accelerometer reads ~0.26g (sin(15°))
+        // At 45° tilt, accelerometer reads ~0.71g (sin(45°))
+        // Using 0.26 as divisor means 15° = full steering (too sensitive)
+        // Using 0.71 as divisor means 45° = full steering (moderate)
+        const double maxTiltG = 0.7; // ~45° tilt for full steering
+        var normalized = Math.Clamp(axis / maxTiltG, -1.0, 1.0);
 
         // Quantize to 16 positions: map to -7.5..7.5, round to get -7..7 (15 values + center)
         // This gives positions: -7, -6, -5, -4, -3, -2, -1, 0, 1, 2, 3, 4, 5, 6, 7 (15 positions)
