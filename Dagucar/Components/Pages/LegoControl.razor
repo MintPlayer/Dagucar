@@ -146,12 +146,12 @@
         const double maxSteerPercent = 100.0;
 
         // Normalize axis to -1..1 range
-        // Divide by a smaller value to require more tilt for full steering (less sensitive)
-        // At 15° tilt, accelerometer reads ~0.26g (sin(15°))
+        // Divide by a larger value to require more tilt for full steering (less sensitive)
         // At 45° tilt, accelerometer reads ~0.71g (sin(45°))
-        // Using 0.26 as divisor means 15° = full steering (too sensitive)
-        // Using 0.71 as divisor means 45° = full steering (moderate)
-        const double maxTiltG = 0.7; // ~45° tilt for full steering
+        // At 60° tilt, accelerometer reads ~0.87g (sin(60°))
+        // Using a larger divisor means more tilt required for full steering
+        // const double maxTiltG = 1.5; // requires significant tilt for full steering
+        const double maxTiltG = 6; // requires significant tilt for full steering
         var normalized = Math.Clamp(axis / maxTiltG, -1.0, 1.0);
 
         // Quantize to 16 positions: map to -7.5..7.5, round to get -7..7 (15 values + center)
