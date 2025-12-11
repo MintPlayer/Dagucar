@@ -119,7 +119,7 @@
         var reading = e.Reading.Acceleration;
         // Tilt forward/back on Y for drive, tilt left/right on X for steering
         targetDrive = MapToPercent(-reading.Y);
-        targetSteer = MapToPercent(-reading.X); // invert to correct left/right
+        targetSteer = MapToSteerPosition(-reading.X); // invert to correct left/right
     }
 
     private static double MapToPercent(double axis)
@@ -127,6 +127,26 @@
         // Axis typically in range -1.5..1.5g while moving; clamp to keep car controllable
         var normalized = Math.Clamp(axis, -1.2, 1.2) / 1.2;
         return normalized * 100;
+    }
+
+    private static double MapToSteerPosition(double axis)
+    {
+        // The car supports 16 steering positions (-7 to +7, plus center at 0)
+        // Map accelerometer axis to one of 16 discrete positions
+        const int steeringPositions = 16;
+        const double maxSteerPercent = 100.0;
+
+        // Normalize axis to -1..1 range
+        var normalized = Math.Clamp(axis, -1.2, 1.2) / 1.2;
+
+        // Quantize to 16 positions: map to -7.5..7.5, round to get -7..7 (15 values + center)
+        // This gives positions: -7, -6, -5, -4, -3, -2, -1, 0, 1, 2, 3, 4, 5, 6, 7 (15 positions)
+        // Plus the full range gives us 16 discrete steps
+        var halfPositions = (steeringPositions - 1) / 2.0; // 7.5
+        var position = Math.Round(normalized * halfPositions);
+
+        // Convert position back to percentage (-100 to +100)
+        return (position / halfPositions) * maxSteerPercent;
     }
 
     private async Task StopLego()
